@@ -22,18 +22,26 @@ const getCustomers = async () => {
         const customers = await Customer.find();
         if (customers.length === 0) {
             console.log('No Customers found.');
+            return [];
         } else {
             console.log('\nBelow is a list of customers:');
             customers.forEach((customer, index) => {
                 console.log(`id: ${customer.id} --  Name: ${customer.name}, Age: ${customer.age}`);
             });
+            return customers;
         }
     } catch (error) {
         console.error('Error fetching customers:', error);
+        return [];
     }
 };
 
 const updateCustomer = async (id, customerData) => {
+    const customer = await validateCustomer(id);
+    if (!customer) {
+        return;
+    }
+
     const updatedCustomer = await Customer.findByIdAndUpdate(
         id,
         {
@@ -46,15 +54,50 @@ const updateCustomer = async (id, customerData) => {
 }
 
 const deleteCustomer = async (id) => {
+    const customer = await validateCustomer(id);
+    if (!customer) {
+        return;
+    }
+
     const deletedCustomer = await Customer.findByIdAndDelete(id);
     console.log('Removed todo:', deletedCustomer);
+}
+
+const getInput = () => {
+    const name = prompt('Enter Name: ');
+    const age = parseInt(prompt('Enter Age: '), 10);
+    return { name, age };
+}
+
+const getCustomerId = async (action) => {
+    const customers = await getCustomers();
+    if (customers.length === 0) {
+        return null;
+    }
+    const id = prompt(`Copy and paste the ID of the customer you would like to ${action}: `);
+    return id;
+}
+
+const validateCustomer = async (id) => {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        console.log('Error: Invalid ID format');
+        return null;
+    }
+
+    const customer = await Customer.findById(id);
+    if (!customer) {
+        console.log('Error: No Customer found with that ID.')
+        return null;
+    }
+
+    return customer;
 }
 
 // APP
 const main = async () => {
     await connect();
 
-    let quit = false
+    let quit = false;
 
     while (!quit) {
         console.log(`
@@ -72,41 +115,37 @@ const main = async () => {
         const userInput = prompt('Number of action to run: ');
 
         switch (userInput) {
-            case '1':
-                const nameInput = prompt('Name: ');
-                const ageInput = prompt('Age: ');
-
-                const customerData = {
-                    name: nameInput,
-                    age: parseInt(ageInput, 10),
-                }
-
+            case '1': {
+                const customerData = getInput();
                 await createCustomer(customerData);
                 break;
-            case '2':
+            }
+            case '2': {
                 await getCustomers();
                 break;
-            case '3':
-                await getCustomers();
-                const idInput = prompt('Copy and paste the id of the customer you would like to update here:');
-                const nameInput2 = prompt('What is the customers new name?');
-                const ageInput2 = prompt('What is the customers new age?');
-                const customerData2 = {
-                    name: nameInput2,
-                    age: parseInt(ageInput2, 10),
+            }
+            case '3': {
+                const id = await getCustomerId('update');
+                if (id) {
+                    const updatedData = getInput();
+                    await updateCustomer(id, updatedData);
                 }
-                await updateCustomer(idInput, customerData2);
                 break;
-            case '4':
-                await getCustomers();
-                const idInput3 = prompt('Copy and paste the id of the customer you would like to update here:');
-                await deleteCustomer(idInput3);
+            }
+            case '4': {
+                const id = await getCustomerId('delete');
+                if (id) {
+                    await deleteCustomer(id);
+                }
                 break;
-            case '5':
+            }
+            case '5': {
                 quit = true;
                 break;
-            default:
+            }
+            default: {
                 console.log("Invalid option. Please enter a number between 1 and 5.");
+            }
         }
     }
     console.log('Exiting CRM...');
